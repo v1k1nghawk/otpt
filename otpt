@@ -1,0 +1,116 @@
+#!/bin/bash
+###############################################################################
+# File name: otpt
+#
+# syntax:
+# otpt PID [SYSCALL|--all]
+#
+# args:
+#  1 (PID)      - process identifier
+#  2 (SYSCALL)  - specific Linux syscall
+#  2 (--all)    - all syscalls
+#  Without the second parameter utility shows the PID output
+#
+# retcode:
+#  -1     - specified PID does not exists
+#
+# Programmer: Andrew Art
+# Last modified date: 05.03.2021
+###############################################################################
+
+
+
+#####################################################################VARS
+
+# Script version
+declare -r Ver="00.04"
+
+# Specified PID
+declare -i PID=""
+
+# Process description
+declare PIDdata=""
+
+# Tracing syscalls
+declare syscalls=""
+
+
+#####################################################################FUNCS
+
+##################################
+# User manual
+##################################
+function print_help(){
+    echo "USAGE: `basename $0` PID [SYSCALL|--all]
+      PID            - Process identifier (get it by command \"ps afx\").
+
+      SYSCALL        - Specific Linux system call (get it by command \"man syscalls\").
+      --all          - All system calls of the specified process.
+      Without the second argument utility shows the whole output of the specified process
+      (parameters of the \"write\" syscalls).
+
+         EX1: `basename $0` 28638 mount
+         EX2: `basename $0` 28638 --all
+         EX3: `basename $0` 28638"
+}
+
+
+#####################################################################MAIN
+
+echo -en "otpt v$Ver | Process syscalls tracing\n\n"
+
+###################
+# ANALYSIS AND APPLICATION OF PARAMETERS
+###################
+
+# Show user manual if parameters are incorrect
+if [[ "$#" < "1" ]] || ! [[ "$1" =~ ^[0-9]+$ ]]; then
+    print_help
+    exit 0
+fi
+
+PID="$1"
+
+if [[ "$2" != "" ]]; then
+    syscalls="$2"
+fi
+
+# Check that the transferred PID is present in the system
+PIDdata="`ps afx | awk -v awkPID="$PID" -F ' ' '$1 == awkPID'`"
+if [[ $PIDdata != "" ]]; then
+   echo -en "TRACING FOR PROCESS:\n"
+   echo -en "`(ps afx | head -n 1)`"
+   echo -en "\n$PIDdata\n\n"
+else
+   echo -en "\nPID $PID DOES NOT EXISTS\n"
+   exit -1
+fi
+
+###################
+# OUTPUTTING THE CURRENT DATA
+###################
+
+# Tracing
+case ${syscalls} in
+    "" )
+        # Duplicate process output
+        sudo strace -e trace=write -s1000 -fp"$PID" 2>&1 \
+        | grep --line-buffered -o '".\+[^"]"' \
+        | while read -r line; do
+           # Trim ""
+           line_cut=${line#\"}
+           echo -en "${line_cut%\"}"
+        done
+        ;;
+
+    "--all" )
+        # Show all syscalls and signals of the process
+        sudo strace -ttt -T -fp"$PID" 2>&1
+        ;;
+
+    * )
+        # Show specified syscalls and signals of the process
+        sudo strace -e trace=${syscalls} -ttt -T -fp"$PID" 2>&1
+        ;;
+esac
+
