@@ -15,7 +15,7 @@
 #  -1     - specified PID does not exists
 #
 # Programmer: Andrew Art
-# Last modified date: 05.03.2021
+# Last modified date: 09.03.2021
 ###############################################################################
 
 
@@ -23,7 +23,7 @@
 #####################################################################VARS
 
 # Script version
-declare -r Ver="00.04"
+declare -r Ver="00.05"
 
 # Specified PID
 declare -i PID=""
@@ -63,7 +63,7 @@ echo -en "otpt v$Ver | Process syscalls tracing\n\n"
 # ANALYSIS AND APPLICATION OF PARAMETERS
 ###################
 
-# Show user manual if parameters are incorrect
+# Show user's manual if parameters are incorrect
 if [[ "$#" < "1" ]] || ! [[ "$1" =~ ^[0-9]+$ ]]; then
     print_help
     exit 0
@@ -73,6 +73,11 @@ PID="$1"
 
 if [[ "$2" != "" ]]; then
     syscalls="$2"
+
+    # All syscalls of the process
+    if [[ "${syscalls}" == "--all" ]]; then
+        syscalls="all"
+    fi
 fi
 
 # Check that the transferred PID is present in the system
@@ -103,13 +108,8 @@ case ${syscalls} in
         done
         ;;
 
-    "--all" )
-        # Show all syscalls and signals of the process
-        sudo strace -ttt -T -fp"$PID" 2>&1
-        ;;
-
     * )
-        # Show specified syscalls and signals of the process
+        # Show specified syscalls of the process
         sudo strace -e trace=${syscalls} -ttt -T -fp"$PID" 2>&1
         ;;
 esac
